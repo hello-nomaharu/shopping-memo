@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2f9e44">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="買い物メモ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<title>買い物・在庫メモ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", Meiryo, system-ui, sans-serif;
+    background: linear-gradient(160deg, #e8f5e9, #f6f8f6 40%, #eef2f7);
+    min-height: 100vh;
+    color: #1f2937;
+    padding: 24px 12px 48px;
+  }
+
+  .app { max-width: 600px; margin: 0 auto; }
+
+  header h1 { font-size: 1.5rem; letter-spacing: .02em; }
+  .subtitle { color: #6b7280; font-size: .85rem; margin-top: 4px; }
+
+  #save-warning {
+    margin-top: 12px; padding: 10px 12px;
+    background: #fff5f5; border: 1.5px solid #ffc9c9; border-radius: 10px;
+    color: #c92a2a; font-size: .85rem; font-weight: 600;
+  }
+
+  .tabs {
+    display: flex; gap: 6px;
+    background: #dfe7df;
+    padding: 6px; border-radius: 12px;
+    margin: 16px 0;
+  }
+  .tab {
+    flex: 1; border: none; background: transparent;
+    padding: 10px 8px; border-radius: 9px;
+    font-size: .95rem; font-weight: 600; color: #4b5563;
+    cursor: pointer; font-family: inherit;
+  }
+  .tab.active { background: #fff; color: #2b8a3e; box-shadow: 0 2px 8px rgba(15, 60, 30, .12); }
+  .count {
+    display: inline-block; min-width: 1.5em;
+    background: #d3f9d8; color: #2b8a3e;
+    border-radius: 999px; padding: 0 7px;
+    font-size: .8em; margin-left: 2px;
+  }
+
+  .panel {
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 6px 24px rgba(15, 60, 30, .08);
+    padding: 16px;
+  }
+  .hidden { display: none; }
+
+  .add-form { display: flex; flex-direction: column; gap: 8px; }
+  .form-row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+  .form-row input, .form-row select {
+    padding: 10px 12px;
+    border: 1.5px solid #d7ddd7; border-radius: 10px;
+    font-size: 1rem; font-family: inherit;
+    background: #fff; color: #1f2937;
+    min-width: 0;
+  }
+  .form-row input[type="text"] { flex: 1 1 120px; }
+  .form-row input[type="number"] { width: 64px; flex: 0 0 auto; }
+  .form-row select { flex: 0 1 auto; max-width: 150px; }
+  .form-row input:focus, .form-row select:focus {
+    outline: none; border-color: #2f9e44;
+    box-shadow: 0 0 0 3px rgba(47, 158, 68, .15);
+  }
+  #shop-sale-price { flex: 1 1 70px; width: auto; }
+  #pantry-price { flex: 1 1 auto; width: auto; }
+  .form-row .btn-primary { margin-left: auto; flex: 0 0 auto; }
+  .form-row .sale-toggle, .form-row .nostock-toggle { flex: 0 0 auto; }
+
+  .suggest-wrap { position: relative; }
+  .suggest {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: #fff; border: 1.5px solid #d7ddd7; border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(15, 60, 30, .16);
+    max-height: 264px; overflow-y: auto; z-index: 40;
+  }
+  .suggest-option {
+    display: flex; flex-direction: column; gap: 3px;
+    width: 100%; text-align: left;
+    padding: 10px 12px; border: none; background: transparent;
+    font-family: inherit; cursor: pointer;
+    border-bottom: 1px solid #f0f3f0;
+  }
+  .suggest-option:last-child { border-bottom: none; }
+  .suggest-option.active, .suggest-option:hover { background: #ebfbee; }
+  .suggest-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .suggest-name { font-weight: 600; font-size: .95rem; color: #1f2937; }
+  .suggest-ref { font-size: .75rem; color: #6b7280; }
+
+  .sale-toggle, .nostock-toggle {
+    display: flex; align-items: center; gap: 5px;
+    font-size: .85rem; font-weight: 700;
+    padding: 8px 10px; border-radius: 10px;
+    cursor: pointer; white-space: nowrap; user-select: none;
+  }
+  .sale-toggle { color: #c2410c; background: #fff7ed; border: 1.5px solid #fdba74; }
+  .sale-toggle input { width: 16px; height: 16px; accent-color: #ea580c; cursor: pointer; }
+  .sale-toggle:has(input:checked) { background: #ffedd5; border-color: #ea580c; }
+  .nostock-toggle { color: #3730a3; background: #eef2ff; border: 1.5px solid #a5b4fc; }
+  .nostock-toggle input { width: 16px; height: 16px; accent-color: #4f46e5; cursor: pointer; }
+  .nostock-toggle:has(input:checked) { background: #e0e7ff; border-color: #4f46e5; }
+
+  .btn-primary {
+    background: #2f9e44; color: #fff; border: none;
+    border-radius: 10px; padding: 10px 18px;
+    font-size: .95rem; font-weight: 700; cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+  .btn-primary:hover { background: #2b8a3e; }
+
+  .list { margin-top: 12px; }
+  .group-header {
+    font-size: .8rem; font-weight: 700; color: #6b7280;
+    margin: 14px 0 6px; padding-left: 4px;
+  }
+  .group-header.out-header { color: #c92a2a; }
+  .empty { padding: 28px 12px; text-align: center; color: #9ca3af; font-size: .95rem; line-height: 1.7; }
+
+  .item {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 10px; padding: 10px;
+    background: #fff;
+    border: 1px solid #e6ebe6; border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(15, 60, 30, .06);
+    margin-bottom: 8px;
+    touch-action: pan-y;
+    -webkit-touch-callout: none;
+    transition: background-color .15s ease, border-color .15s ease, opacity .14s ease, transform .14s ease;
+  }
+  .item.tappable { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .item.sale { background: #fff7ed; border-color: #fed7aa; }
+  .item.nostock:not(.sale) { background: #f8fafc; border-color: #e2e8f0; }
+  .item.done { background: #f6f8f6; border-color: #e6ebe6; }
+  .item.out { background: #fff9f9; border-color: #fecaca; }
+  .item.enter { animation: item-in .16s ease-out; }
+  .item.removing { opacity: 0; transform: translateX(10px); pointer-events: none; }
+  @keyframes item-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* ジェスチャー: 長押しドラッグ / 左スワイプ削除 */
+  .item.dragging {
+    position: relative; z-index: 6; opacity: .97;
+    box-shadow: 0 10px 24px rgba(15, 60, 30, .28);
+    transition: none;
+  }
+  .item.swiping { position: relative; z-index: 1; margin-bottom: 0; transition: none; box-shadow: 0 2px 10px rgba(15, 60, 30, .18); }
+  .swipe-wrap {
+    position: relative;
+    background: #fa5252; border-radius: 12px; margin-bottom: 8px; overflow: hidden;
+  }
+  .swipe-wrap .item { position: relative; z-index: 1; width: 100%; margin-bottom: 0; }
+  .swipe-del {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: center;
+    color: #fff; font-weight: 700; font-size: .85rem; padding: 0 18px; white-space: nowrap;
+  }
+  .swipe-wrap.collapsing { transition: height .15s ease, opacity .15s ease, margin-bottom .15s ease; opacity: 0; margin-bottom: 0; }
+  body.drag-active { user-select: none; -webkit-user-select: none; }
+
+  .check { width: 22px; height: 22px; accent-color: #2f9e44; cursor: pointer; flex-shrink: 0; }
+  .item-main { flex: 1 1 110px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .item-name { font-weight: 600; font-size: 1rem; word-break: break-word; transition: color .15s ease; }
+  .item.done .item-name { text-decoration: line-through; color: #9ca3af; }
+  .chip {
+    font-size: .72rem; background: #f1f4f1; color: #5f6b5f;
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .badge {
+    font-size: .7rem; background: #ffe3e3; color: #c92a2a;
+    padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap;
+  }
+  .badge-sale {
+    font-size: .7rem; background: #ffedd5; color: #c2410c;
+    padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap;
+  }
+  .badge-nostock {
+    font-size: .7rem; background: #e5e7eb; color: #4b5563;
+    padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap;
+  }
+  .price-line { width: 100%; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .price-sale { color: #c2410c; font-weight: 700; font-size: .85rem; }
+  .price-usual { color: #9ca3af; font-size: .75rem; }
+
+  .item-tools {
+    display: flex; align-items: center; gap: 8px; row-gap: 6px;
+    margin-left: auto; flex: 0 1 auto;
+    flex-wrap: wrap; justify-content: flex-end;
+  }
+  .item-tools .stepper button, .item-tools .mover button, .item-tools .icon-btn {
+    border-color: #e4e9e4; color: #8a938a;
+  }
+  .item-tools .stepper button:hover, .item-tools .mover button:hover:not(:disabled) {
+    border-color: #2f9e44; color: #2b8a3e; background: #fff;
+  }
+  .item-tools .icon-btn:hover { color: #e03131; background: #fff0f0; }
+
+  .icon-btn {
+    border: 1px solid transparent; background: transparent; color: #b0b7b0;
+    font-size: .95rem; cursor: pointer; border-radius: 8px;
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .icon-btn:hover { color: #e03131; background: #fff0f0; }
+
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepper button {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1.5px solid #d7ddd7; background: #fff;
+    cursor: pointer; font-weight: 700; color: #374151; font-size: 1rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .stepper button:hover { border-color: #2f9e44; color: #2b8a3e; }
+  .stepper .num { min-width: 2ch; text-align: center; font-weight: 700; }
+
+  .mover { display: flex; flex-direction: column; gap: 2px; }
+  .mover button {
+    width: 28px; height: 24px; border-radius: 6px;
+    border: 1.5px solid #d7ddd7; background: #fff;
+    color: #374151; font-size: .7rem; line-height: 1;
+    cursor: pointer; padding: 0;
+  }
+  .mover button:hover:not(:disabled) { border-color: #2f9e44; color: #2b8a3e; }
+  .mover button:disabled { opacity: .35; cursor: default; }
+
+  .price-input {
+    width: 92px; padding: 8px;
+    border: 1.5px solid #e5e7eb; border-radius: 8px;
+    font-size: .85rem; color: #374151; font-family: inherit;
+  }
+  .price-input:focus { outline: none; border-color: #2f9e44; }
+
+  .btn-small {
+    border: 1.5px solid #2f9e44; color: #2b8a3e; background: #fff;
+    border-radius: 8px; padding: 7px 10px;
+    font-size: .78rem; font-weight: 700; cursor: pointer;
+    font-family: inherit; white-space: nowrap;
+  }
+  .btn-small:hover { background: #ebfbee; }
+  .btn-restock { background: #2f9e44; color: #fff; border-color: #2f9e44; }
+  .btn-restock:hover { background: #2b8a3e; }
+
+  .panel-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; margin-top: 12px; flex-wrap: wrap;
+  }
+  .progress-wrap { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .muted { color: #6b7280; font-size: .85rem; }
+  .progress { height: 5px; background: #e6ece6; border-radius: 999px; overflow: hidden; }
+  .progress-fill {
+    height: 100%; width: 0; background: #2f9e44; border-radius: 999px;
+    transition: width .18s ease;
+  }
+  .btn-secondary {
+    background: #ebfbee; color: #2b8a3e; border: none;
+    padding: 10px 14px; border-radius: 10px;
+    font-weight: 700; cursor: pointer; font-family: inherit; font-size: .88rem;
+    white-space: nowrap;
+  }
+  .btn-secondary:hover:not(:disabled) { background: #d3f9d8; }
+  .btn-secondary:disabled { opacity: .45; cursor: default; }
+
+  .app-footer { text-align: center; font-size: .75rem; color: #9ca3af; margin-top: 18px; }
+  .footer-actions { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .btn-ghost {
+    border: 1px solid #dfe5df; background: #fff; color: #5f6b5f;
+    border-radius: 999px; padding: 6px 12px;
+    font-size: .78rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .btn-ghost:hover { background: #f1f6f1; color: #2b8a3e; }
+
+  dialog {
+    border: none; border-radius: 16px; padding: 20px;
+    width: min(92vw, 480px);
+    box-shadow: 0 12px 40px rgba(15, 60, 30, .25);
+    color: #1f2937; font-family: inherit;
+  }
+  dialog::backdrop { background: rgba(15, 40, 25, .35); }
+  dialog h2 { font-size: 1.1rem; margin-bottom: 12px; }
+  dialog h3 { font-size: .9rem; color: #2b8a3e; margin: 14px 0 4px; }
+  dialog p, dialog li { font-size: .85rem; line-height: 1.7; color: #374151; }
+  dialog ul { padding-left: 1.2em; }
+  .dialog-close { margin-top: 16px; width: 100%; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 24px;
+    transform: translateX(-50%) translateY(8px);
+    background: #1f2937; color: #fff;
+    padding: 10px 18px; border-radius: 999px;
+    font-size: .85rem; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    max-width: 92vw; text-align: center;
+    display: flex; align-items: center; gap: 12px;
+    z-index: 60;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+  #toast-msg { min-width: 0; }
+  #toast-action {
+    border: none; background: transparent; color: #8ce99a;
+    font-weight: 700; font-size: .85rem; cursor: pointer;
+    font-family: inherit; text-decoration: underline;
+    padding: 4px 2px; flex-shrink: 0;
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 16px 8px calc(96px + env(safe-area-inset-bottom)); }
+    .panel { padding: 12px; }
+    .item { gap: 8px; padding: 10px 8px; }
+    .item-tools { gap: 6px; }
+    .form-row input[type="text"] { flex: 1 1 100%; }
+    .form-row select { flex: 1 1 auto; max-width: none; }
+    .price-input { width: 72px; }
+    .btn-small { padding: 6px 8px; font-size: .75rem; }
+    /* iOS風: タブは親指の届く画面下へ */
+    .tabs {
+      position: fixed; left: 0; right: 0; bottom: 0; margin: 0;
+      border-radius: 0; z-index: 50;
+      padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+      background: rgba(255, 255, 255, .94);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 -4px 16px rgba(15, 60, 30, .10);
+    }
+    .tab { padding: 12px 8px; }
+    .mover { display: none; } /* 並べ替えは長押しドラッグに任せる */
+    #toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🛒 買い物・在庫メモ</h1>
+    <p class="subtitle">スーパーでの買い物と、家の在庫をまとめて管理</p>
+  </header>
+
+  <div id="save-warning" hidden>⚠ データを保存できませんでした。ブラウザの設定(プライベートモード等)をご確認ください。</div>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="shop">🛒 買い物リスト <span class="count" id="shop-count">0</span></button>
+    <button class="tab" data-tab="pantry">📦 在庫 <span class="count" id="pantry-count">0</span></button>
+  </nav>
+
+  <section id="panel-shop" class="panel">
+    <form id="shop-form" class="add-form" autocomplete="off">
+      <div class="suggest-wrap">
+        <div class="form-row">
+          <input id="shop-name" type="text" placeholder="例: 牛乳(過去の候補から選べます)" required maxlength="40" autocomplete="off"
+                 role="combobox" aria-expanded="false" aria-controls="shop-suggest" aria-autocomplete="list">
+          <input id="shop-qty" type="number" min="1" max="99" value="1" title="数量">
+          <select id="shop-category" title="カテゴリ"></select>
+        </div>
+        <div id="shop-suggest" class="suggest" role="listbox" aria-label="過去の商品候補" hidden></div>
+      </div>
+      <div class="form-row">
+        <label class="sale-toggle"><input id="shop-sale" type="checkbox">特売</label>
+        <input id="shop-sale-price" type="number" min="1" max="99999" placeholder="特売価格" title="特売価格(円)" hidden>
+        <label class="nostock-toggle"><input id="shop-nostock" type="checkbox">在庫に入れない</label>
+        <button type="submit" class="btn-primary">追加</button>
+      </div>
+    </form>
+    <div id="shop-list" class="list"></div>
+    <div class="panel-footer">
+      <div class="progress-wrap">
+        <span id="shop-remaining" class="muted"></span>
+        <div class="progress" aria-hidden="true"><div id="shop-progress" class="progress-fill"></div></div>
+      </div>
+      <button id="move-done" class="btn-secondary" disabled>在庫に反映</button>
+    </div>
+  </section>
+
+  <section id="panel-pantry" class="panel hidden">
+    <form id="pantry-form" class="add-form" autocomplete="off">
+      <div class="suggest-wrap">
+        <div class="form-row">
+          <input id="pantry-name" type="text" placeholder="例: 卵" required maxlength="40" autocomplete="off"
+                 role="combobox" aria-expanded="false" aria-controls="pantry-suggest" aria-autocomplete="list">
+          <input id="pantry-qty" type="number" min="1" max="99" value="1" title="数量">
+          <select id="pantry-category" title="カテゴリ"></select>
+        </div>
+        <div id="pantry-suggest" class="suggest" role="listbox" aria-label="過去の商品候補" hidden></div>
+      </div>
+      <div class="form-row">
+        <input id="pantry-price" type="number" min="1" max="99999" placeholder="通常価格" title="通常価格(任意・円)">
+        <button type="submit" class="btn-primary">追加</button>
+      </div>
+    </form>
+    <div id="pantry-list" class="list"></div>
+  </section>
+
+  <footer class="app-footer">
+    <div class="footer-actions">
+      <button id="help-open" class="btn-ghost" type="button">❓ 使い方</button>
+      <button id="export-btn" class="btn-ghost" type="button">📤 書き出し</button>
+      <button id="import-btn" class="btn-ghost" type="button">📥 読み込み</button>
+      <input id="import-file" type="file" accept=".json,application/json" hidden>
+    </div>
+    <p>データはこのブラウザに自動保存されます(localStorage)</p>
+  </footer>
+</div>
+
+<dialog id="help-dialog" aria-label="使い方">
+  <h2>❓ 使い方</h2>
+  <h3>🏠 家で(買い物前)</h3>
+  <ul>
+    <li>在庫画面で使った分を − で減らす。</li>
+    <li>買うものは「🛒 リストへ」で買い物リストに追加。</li>
+    <li>チラシの特売は「特売」チェック+特売価格で登録。よく買うものは通常価格と比べて表示されます。</li>
+  </ul>
+  <h3>🛒 売り場で</h3>
+  <ul>
+    <li>カートに入れたら、商品行のどこでもタップでチェック(取り消し線が付きます)。</li>
+    <li>スマホ: 行を長押しして上下にドラッグで並べ替え。左スワイプで削除(取り消しできます)。</li>
+    <li>パソコン: ↑↓ボタンで自分好みの順に並べ替え。チェックしても順は変わりません。</li>
+    <li>数量の変更・削除は行の右側の小さなボタンから。</li>
+  </ul>
+  <h3>🏁 帰宅後</h3>
+  <ul>
+    <li>「在庫に反映」でチェック済みをまとめて確定。在庫に加算されます(未登録は新規登録)。</li>
+    <li>未チェックのものはリストに残ります(買い忘れ防止)。</li>
+    <li>間違えたら通知の「取り消す」で元に戻せます(削除・反映・読み込み共通)。</li>
+  </ul>
+  <h3>💡 こつ</h3>
+  <ul>
+    <li>商品名を入力すると過去の商品が候補に出ます。↑↓+Enterで選択、もう一度Enterで追加。</li>
+    <li>「在庫に入れない」= 在庫管理しないもの。反映時に在庫へ入らず、リストから消えます。</li>
+    <li>データはこのブラウザの中だけ。念のため「📤 書き出し」でバックアップ、「📥 読み込み」で復元できます。</li>
+    <li>iPhone: Safariの共有メニュー→「ホーム画面に追加」でアプリのように使えます(オフライン対応)。</li>
+  </ul>
+  <button id="help-close" class="btn-primary dialog-close" type="button">閉じる</button>
+</dialog>
+
+<div id="toast" role="status"><span id="toast-msg"></span><button id="toast-action" type="button" hidden></button></div>
+
+<script>
+'use strict';
+
+const CATEGORIES = [
+  { id: 'produce',   label: '青果',     icon: '🥬' },
+  { id: 'fish',      label: '魚',       icon: '🐟' },
+  { id: 'meat',      label: '肉',       icon: '🍖' },
+  { id: 'dairy',     label: '乳製品',   icon: '🥛' },
+  { id: 'eggs',      label: '卵',       icon: '🥚' },
+  { id: 'processed', label: '加工食品', icon: '🧂' },
+  { id: 'other',     label: 'その他',   icon: '📦' }
+];
+const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+const CAT_RANK = Object.fromEntries(CATEGORIES.map((c, i) => [c.id, i]));
+const STORAGE_KEY = 'shopping-pantry-memo-v3';
+const OLD_KEY = 'shopping-pantry-memo-v2';
+const OLD_CAT_MAP = {
+  produce: 'produce', fish: 'fish', meat: 'meat', dairy: 'dairy', eggs: 'eggs',
+  dry: 'processed', frozen: 'processed', other: 'other', rare: 'other'
+};
+const HISTORY_MAX = 200;
+
+let state = load();
+
+function validState(s) {
+  return s && Array.isArray(s.shopping) && Array.isArray(s.pantry);
+}
+
+function migrate(old) {
+  const mapCat = c => OLD_CAT_MAP[c] || 'other';
+  return {
+    shopping: old.shopping.map(i => ({
+      id: i.id, name: i.name, category: mapCat(i.category), qty: i.qty,
+      done: !!i.done, sale: !!i.sale,
+      salePrice: i.salePrice != null ? i.salePrice : null,
+      pantryId: i.pantryId || null,
+      noStock: i.category === 'rare'
+    })),
+    pantry: old.pantry.map(i => ({
+      id: i.id, name: i.name, category: mapCat(i.category), qty: i.qty,
+      usualPrice: i.usualPrice != null ? i.usualPrice : null
+    }))
+  };
+}
+
+// 旧データに履歴が無い場合、現在の在庫・リストから候補を種付けする
+function ensureHistory(s) {
+  if (Array.isArray(s.history)) return s;
+  s.history = [];
+  for (const p of s.pantry) {
+    s.history.push({ name: p.name, category: p.category, qty: null, salePrice: null, usualPrice: p.usualPrice != null ? p.usualPrice : null, ts: 1 });
+  }
+  for (const i of s.shopping) {
+    if (!s.history.some(h => h.name === i.name)) {
+      s.history.push({ name: i.name, category: i.category, qty: i.qty, salePrice: i.salePrice != null ? i.salePrice : null, usualPrice: null, ts: 0 });
+    }
+  }
+  return s;
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (validState(s)) return ensureHistory(s);
+    }
+    const oldRaw = localStorage.getItem(OLD_KEY);
+    if (oldRaw) {
+      const old = JSON.parse(oldRaw);
+      if (validState(old)) {
+        const migrated = ensureHistory(migrate(old));
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)); } catch (e) { /* 保存不可でも動作継続 */ }
+        return migrated;
+      }
+    }
+  } catch (e) { /* 壊れたデータは初期化 */ }
+  return { shopping: [], pantry: [], history: [] };
+}
+
+function setSaveWarning(failed) {
+  const el = document.getElementById('save-warning');
+  if (el) el.hidden = !failed;
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setSaveWarning(false);
+  } catch (e) {
+    setSaveWarning(true);
+  }
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function clampQty(n) {
+  return Math.max(1, Math.min(99, n));
+}
+
+function fmtYen(n) {
+  return n.toLocaleString('ja-JP') + '円';
+}
+
+const $ = id => document.getElementById(id);
+const shopListEl = $('shop-list');
+const pantryListEl = $('pantry-list');
+const moveBtn = $('move-done');
+const toastEl = $('toast');
+const toastMsg = $('toast-msg');
+const toastAction = $('toast-action');
+let toastTimer = null;
+let undoSnapshot = null;
+let enterId = null;
+
+function hideToast() {
+  toastEl.classList.remove('show');
+  clearTimeout(toastTimer);
+}
+
+function toast(msg, opts) {
+  opts = opts || {};
+  toastMsg.textContent = msg;
+  if (opts.action && opts.onAction) {
+    toastAction.textContent = opts.action;
+    toastAction.hidden = false;
+    toastAction.onclick = () => { hideToast(); opts.onAction(); };
+  } else {
+    toastAction.hidden = true;
+    toastAction.onclick = null;
+  }
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, opts.duration || (opts.action ? 6000 : 1800));
+}
+
+function captureUndo() {
+  undoSnapshot = JSON.parse(JSON.stringify(state));
+}
+
+function doUndo() {
+  if (!undoSnapshot) return;
+  state = undoSnapshot;
+  undoSnapshot = null;
+  save(); render();
+  toast('取り消しました');
+}
+
+function offerUndo(msg) {
+  toast(msg, { action: '取り消す', onAction: doUndo, duration: 6000 });
+}
+
+for (const sel of [$('shop-category'), $('pantry-category')]) {
+  for (const c of CATEGORIES) {
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.icon + ' ' + c.label;
+    sel.appendChild(o);
+  }
+}
+
+$('shop-sale').addEventListener('change', e => {
+  $('shop-sale-price').hidden = !e.target.checked;
+});
+
+/* ---- 履歴と候補表示 ---- */
+
+function remember(entry) {
+  if (!entry || !entry.name) return;
+  const h = state.history;
+  const rec = {
+    name: entry.name, category: entry.category,
+    qty: entry.qty != null ? entry.qty : null,
+    salePrice: entry.salePrice != null ? entry.salePrice : null,
+    usualPrice: entry.usualPrice != null ? entry.usualPrice : null,
+    ts: Date.now()
+  };
+  const i = h.findIndex(x => x.name === entry.name);
+  if (i >= 0) {
+    const old = h[i];
+    if (rec.qty == null) rec.qty = old.qty;
+    if (rec.salePrice == null) rec.salePrice = old.salePrice;
+    if (rec.usualPrice == null) rec.usualPrice = old.usualPrice;
+    h.splice(i, 1);
+  }
+  h.unshift(rec);
+  if (h.length > HISTORY_MAX) h.length = HISTORY_MAX;
+}
+
+function suggestionPool() {
+  const map = new Map();
+  const offer = (name, category, info) => {
+    if (!name) return;
+    let e = map.get(name);
+    if (!e) {
+      e = { name, category, qty: null, usualPrice: null, salePrice: null, ts: 0 };
+      map.set(name, e);
+    }
+    if (e.qty == null && info.qty != null) e.qty = info.qty;
+    if (e.usualPrice == null && info.usualPrice != null) e.usualPrice = info.usualPrice;
+    if (e.salePrice == null && info.salePrice != null) e.salePrice = info.salePrice;
+    if (info.ts > e.ts) e.ts = info.ts;
+  };
+  for (const p of state.pantry) offer(p.name, p.category, { usualPrice: p.usualPrice, ts: 1 });
+  for (const h of state.history) offer(h.name, h.category, h);
+  for (const s of state.shopping) offer(s.name, s.category, { salePrice: s.salePrice, ts: 0 });
+  return [...map.values()];
+}
+
+function getSuggestions(query) {
+  const q = (query || '').trim();
+  if (!q) return [];
+  const hits = suggestionPool().filter(e => e.name.includes(q));
+  hits.sort((a, b) => {
+    const sa = a.name.startsWith(q) ? 0 : 1;
+    const sb = b.name.startsWith(q) ? 0 : 1;
+    if (sa !== sb) return sa - sb;
+    return b.ts - a.ts;
+  });
+  return hits.slice(0, 7);
+}
+
+function suggestRefText(e) {
+  const parts = [];
+  if (e.usualPrice != null) parts.push('通常 ' + fmtYen(e.usualPrice));
+  if (e.salePrice != null) parts.push('特売 ' + fmtYen(e.salePrice));
+  if (e.qty != null) parts.push('前回 ' + e.qty + '個');
+  return parts.join(' ・ ');
+}
+
+function attachSuggest(nameEl, catEl, dropEl) {
+  let items = [], active = -1, open = false;
+
+  function close() {
+    open = false; active = -1; items = [];
+    dropEl.hidden = true;
+    dropEl.textContent = '';
+    nameEl.setAttribute('aria-expanded', 'false');
+  }
+
+  function setActive(i) {
+    active = i;
+    [...dropEl.children].forEach((b, j) => {
+      b.classList.toggle('active', j === i);
+      b.setAttribute('aria-selected', j === i ? 'true' : 'false');
+    });
+    if (dropEl.children[i]) dropEl.children[i].scrollIntoView({ block: 'nearest' });
+  }
+
+  function update() {
+    items = getSuggestions(nameEl.value);
+    active = -1;
+    dropEl.textContent = '';
+    if (!items.length) { close(); return; }
+    items.forEach((e, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'suggest-option';
+      b.dataset.i = i;
+      b.setAttribute('role', 'option');
+      b.setAttribute('aria-selected', 'false');
+      const top = document.createElement('span');
+      top.className = 'suggest-top';
+      const nm = document.createElement('span');
+      nm.className = 'suggest-name';
+      nm.textContent = e.name;
+      top.appendChild(nm);
+      top.appendChild(makeChip(e.category));
+      b.appendChild(top);
+      const ref = suggestRefText(e);
+      if (ref) {
+        const r = document.createElement('span');
+        r.className = 'suggest-ref';
+        r.textContent = ref;
+        b.appendChild(r);
+      }
+      dropEl.appendChild(b);
+    });
+    dropEl.hidden = false;
+    open = true;
+    nameEl.setAttribute('aria-expanded', 'true');
+  }
+
+  function choose(i) {
+    const e = items[i];
+    if (!e) return;
+    nameEl.value = e.name;
+    if (CAT_MAP[e.category]) catEl.value = e.category;
+    close();
+    nameEl.focus();
+  }
+
+  nameEl.addEventListener('input', update);
+  nameEl.addEventListener('keydown', e => {
+    if (e.isComposing) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!open) update();
+      if (open && items.length) setActive((active + 1) % items.length);
+    } else if (e.key === 'ArrowUp') {
+      if (open && items.length) {
+        e.preventDefault();
+        setActive(active <= 0 ? items.length - 1 : active - 1);
+      }
+    } else if (e.key === 'Enter') {
+      if (open && active >= 0) { e.preventDefault(); choose(active); }
+    } else if (e.key === 'Escape') {
+      if (open) { e.preventDefault(); close(); }
+    } else if (e.key === 'Tab') {
+      close();
+    }
+  });
+  nameEl.addEventListener('blur', () => {
+    setTimeout(() => { if (document.activeElement !== nameEl) close(); }, 120);
+  });
+  dropEl.addEventListener('mousedown', e => e.preventDefault());
+  dropEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-i]');
+    if (b) choose(Number(b.dataset.i));
+  });
+
+  return { close, update };
+}
+
+const shopSuggest = attachSuggest($('shop-name'), $('shop-category'), $('shop-suggest'));
+const pantrySuggest = attachSuggest($('pantry-name'), $('pantry-category'), $('pantry-suggest'));
+
+/* ---- 追加・紐付け ---- */
+
+function findPantry(name, category) {
+  // 同名なら同一物品として扱う(追加時のカテゴリ選択が在庫と違っても紐付ける)
+  return state.pantry.find(i => i.name === name && i.category === category)
+    || state.pantry.find(i => i.name === name);
+}
+
+function addToShopping(name, category, qty, sale, salePrice, noStock) {
+  const existing = state.shopping.find(i => !i.done && i.name === name && i.category === category && i.sale === sale && !!i.noStock === !!noStock);
+  if (existing) {
+    existing.qty = Math.min(99, existing.qty + qty);
+    return existing;
+  }
+  const p = noStock ? null : findPantry(name, category);
+  const item = {
+    id: uid(), name, category, qty,
+    done: false, sale,
+    salePrice: sale ? salePrice : null,
+    pantryId: p ? p.id : null,
+    noStock: !!noStock
+  };
+  // 新規はカテゴリ順の位置に挿入(初期状態は売り場順)。手動での並べ替えは保持される
+  const rank = CAT_RANK[category];
+  const idx = state.shopping.findIndex(i => CAT_RANK[i.category] > rank);
+  if (idx === -1) state.shopping.push(item);
+  else state.shopping.splice(idx, 0, item);
+  enterId = item.id;
+  return item;
+}
+
+function addToPantry(name, category, qty, usualPrice) {
+  const existing = findPantry(name, category);
+  if (existing) {
+    existing.qty = Math.min(99, existing.qty + qty);
+    if (usualPrice != null) existing.usualPrice = usualPrice;
+    return existing;
+  }
+  const item = { id: uid(), name, qty, category, usualPrice: usualPrice != null ? usualPrice : null };
+  state.pantry.push(item);
+  return item;
+}
+
+$('shop-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const nameEl = $('shop-name'), qtyEl = $('shop-qty'), catEl = $('shop-category');
+  const saleEl = $('shop-sale'), priceEl = $('shop-sale-price'), noStockEl = $('shop-nostock');
+  const name = nameEl.value.trim();
+  if (!name) return;
+  const qty = clampQty(parseInt(qtyEl.value, 10) || 1);
+  const sale = saleEl.checked;
+  let salePrice = null;
+  if (sale) {
+    salePrice = parseInt(priceEl.value, 10);
+    if (!salePrice || salePrice < 1) {
+      toast('特売価格を入力してください');
+      priceEl.focus();
+      return;
+    }
+    salePrice = Math.min(99999, salePrice);
+  }
+  addToShopping(name, catEl.value, qty, sale, salePrice, noStockEl.checked);
+  remember({ name, category: catEl.value, qty, salePrice });
+  save(); render();
+  shopSuggest.close();
+  nameEl.value = ''; qtyEl.value = '1'; priceEl.value = '';
+  saleEl.checked = false; priceEl.hidden = true; noStockEl.checked = false;
+  nameEl.focus();
+  toast('「' + name + '」を買い物リストに追加しました');
+});
+
+$('pantry-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const nameEl = $('pantry-name'), qtyEl = $('pantry-qty'), catEl = $('pantry-category'), priceEl = $('pantry-price');
+  const name = nameEl.value.trim();
+  if (!name) return;
+  const qty = clampQty(parseInt(qtyEl.value, 10) || 1);
+  const price = parseInt(priceEl.value, 10);
+  const usualPrice = price >= 1 ? Math.min(99999, price) : null;
+  addToPantry(name, catEl.value, qty, usualPrice);
+  remember({ name, category: catEl.value, qty, usualPrice });
+  save(); render();
+  pantrySuggest.close();
+  nameEl.value = ''; qtyEl.value = '1'; priceEl.value = '';
+  nameEl.focus();
+  toast('「' + name + '」を在庫に追加しました');
+});
+
+/* ---- 部分更新(チェック・数量は再描画しない) ---- */
+
+function shopRowEl(id) {
+  return shopListEl.querySelector('.item[data-id="' + id + '"]');
+}
+
+function setDone(item, done) {
+  item.done = done;
+  const row = shopRowEl(item.id);
+  if (row) {
+    row.classList.toggle('done', done);
+    const cb = row.querySelector('.check');
+    if (cb) cb.checked = done;
+  }
+  updateMeta();
+  save();
+}
+
+function updateMeta() {
+  const total = state.shopping.length;
+  const remaining = state.shopping.filter(i => !i.done).length;
+  const doneCount = total - remaining;
+  $('shop-count').textContent = remaining;
+  $('pantry-count').textContent = state.pantry.length;
+  $('shop-remaining').textContent = total
+    ? '残り ' + remaining + '件 ・ 購入済み ' + doneCount + '件'
+    : '';
+  $('shop-progress').style.width = total ? (doneCount / total * 100) + '%' : '0%';
+  moveBtn.disabled = !doneCount;
+  moveBtn.textContent = doneCount ? '在庫に反映(' + doneCount + ')' : '在庫に反映';
+}
+
+/* ---- 買い物リスト描画 ---- */
+
+function makeChip(category) {
+  const c = CAT_MAP[category] || CAT_MAP.other;
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  chip.textContent = c.icon + ' ' + c.label;
+  return chip;
+}
+
+function makeDeleteBtn(id) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'icon-btn';
+  btn.dataset.action = 'del';
+  btn.dataset.id = id;
+  btn.title = '削除';
+  btn.setAttribute('aria-label', '削除');
+  btn.textContent = '✕';
+  return btn;
+}
+
+function makeStepper(item) {
+  const stepper = document.createElement('div');
+  stepper.className = 'stepper';
+  const dec = document.createElement('button');
+  dec.type = 'button';
+  dec.dataset.action = 'dec';
+  dec.dataset.id = item.id;
+  dec.title = '1つ減らす';
+  dec.setAttribute('aria-label', '1つ減らす');
+  dec.textContent = '−';
+  const num = document.createElement('span');
+  num.className = 'num';
+  num.textContent = item.qty;
+  const inc = document.createElement('button');
+  inc.type = 'button';
+  inc.dataset.action = 'inc';
+  inc.dataset.id = item.id;
+  inc.title = '1つ増やす';
+  inc.setAttribute('aria-label', '1つ増やす');
+  inc.textContent = '+';
+  stepper.appendChild(dec);
+  stepper.appendChild(num);
+  stepper.appendChild(inc);
+  return stepper;
+}
+
+function makeMover(item, idx, total) {
+  const mover = document.createElement('div');
+  mover.className = 'mover';
+  const up = document.createElement('button');
+  up.type = 'button';
+  up.dataset.action = 'up';
+  up.dataset.id = item.id;
+  up.title = '上へ移動';
+  up.setAttribute('aria-label', '上へ移動');
+  up.textContent = '↑';
+  up.disabled = idx === 0;
+  const down = document.createElement('button');
+  down.type = 'button';
+  down.dataset.action = 'down';
+  down.dataset.id = item.id;
+  down.title = '下へ移動';
+  down.setAttribute('aria-label', '下へ移動');
+  down.textContent = '↓';
+  down.disabled = idx === total - 1;
+  mover.appendChild(up);
+  mover.appendChild(down);
+  return mover;
+}
+
+function makePriceLine(item) {
+  const p = item.pantryId ? state.pantry.find(i => i.id === item.pantryId) : null;
+  const line = document.createElement('div');
+  line.className = 'price-line';
+  if (item.sale) {
+    const sale = document.createElement('span');
+    sale.className = 'price-sale';
+    sale.textContent = fmtYen(item.salePrice);
+    line.appendChild(sale);
+    if (p && p.usualPrice != null) {
+      const usual = document.createElement('span');
+      usual.className = 'price-usual';
+      usual.textContent = '通常 ' + fmtYen(p.usualPrice);
+      line.appendChild(usual);
+    }
+  } else if (p && p.usualPrice != null) {
+    const usual = document.createElement('span');
+    usual.className = 'price-usual';
+    usual.textContent = '通常 ' + fmtYen(p.usualPrice);
+    line.appendChild(usual);
+  }
+  return line.childNodes.length ? line : null;
+}
+
+function shopRow(item, idx, total) {
+  const row = document.createElement('div');
+  row.className = 'item tappable' + (item.done ? ' done' : '') + (item.sale ? ' sale' : '') + (item.noStock ? ' nostock' : '');
+  row.dataset.id = item.id;
+  if (item.id === enterId) row.classList.add('enter');
+
+  const check = document.createElement('input');
+  check.type = 'checkbox';
+  check.className = 'check';
+  check.checked = item.done;
+  check.dataset.action = 'toggle';
+  check.dataset.id = item.id;
+  check.title = 'カートに入れたチェック';
+  check.setAttribute('aria-label', item.name + ' をカートに入れた');
+
+  const main = document.createElement('div');
+  main.className = 'item-main';
+  const name = document.createElement('span');
+  name.className = 'item-name';
+  name.textContent = item.name;
+  main.appendChild(name);
+  main.appendChild(makeChip(item.category));
+  if (item.sale) {
+    const badge = document.createElement('span');
+    badge.className = 'badge-sale';
+    badge.textContent = '特売';
+    main.appendChild(badge);
+  }
+  if (item.noStock) {
+    const badge = document.createElement('span');
+    badge.className = 'badge-nostock';
+    badge.textContent = '在庫に入れない';
+    main.appendChild(badge);
+  }
+  const priceLine = makePriceLine(item);
+  if (priceLine) main.appendChild(priceLine);
+
+  const tools = document.createElement('div');
+  tools.className = 'item-tools';
+  tools.appendChild(makeStepper(item));
+  tools.appendChild(makeMover(item, idx, total));
+  tools.appendChild(makeDeleteBtn(item.id));
+
+  row.appendChild(check);
+  row.appendChild(main);
+  row.appendChild(tools);
+  return row;
+}
+
+function renderShop() {
+  shopListEl.textContent = '';
+  if (!state.shopping.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'リストは空です。在庫の「🛒 リストへ」か、上のフォームから追加しましょう。';
+    shopListEl.appendChild(empty);
+    return;
+  }
+  state.shopping.forEach((item, idx) => {
+    shopListEl.appendChild(shopRow(item, idx, state.shopping.length));
+  });
+  enterId = null;
+}
+
+/* ---- 在庫描画(在庫切れを先頭にまとめる) ---- */
+
+function pantryRow(item) {
+  const row = document.createElement('div');
+  row.className = 'item' + (item.qty === 0 ? ' out' : '');
+  row.dataset.id = item.id;
+
+  const main = document.createElement('div');
+  main.className = 'item-main';
+  const name = document.createElement('span');
+  name.className = 'item-name';
+  name.textContent = item.name;
+  main.appendChild(name);
+  main.appendChild(makeChip(item.category));
+  if (item.qty === 0) {
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.textContent = '在庫切れ';
+    main.appendChild(badge);
+  }
+
+  const price = document.createElement('input');
+  price.type = 'number';
+  price.className = 'price-input';
+  price.min = '1';
+  price.max = '99999';
+  price.placeholder = '通常価格';
+  price.title = '通常価格(円)';
+  price.setAttribute('aria-label', item.name + ' の通常価格');
+  price.dataset.action = 'price';
+  price.dataset.id = item.id;
+  if (item.usualPrice != null) price.value = item.usualPrice;
+
+  const toList = document.createElement('button');
+  toList.type = 'button';
+  toList.className = 'btn-small' + (item.qty === 0 ? ' btn-restock' : '');
+  toList.dataset.action = 'tolist';
+  toList.dataset.id = item.id;
+  toList.textContent = '🛒 リストへ';
+
+  const tools = document.createElement('div');
+  tools.className = 'item-tools';
+  tools.appendChild(makeStepper(item));
+  tools.appendChild(price);
+  tools.appendChild(toList);
+  tools.appendChild(makeDeleteBtn(item.id));
+
+  row.appendChild(main);
+  row.appendChild(tools);
+  return row;
+}
+
+function renderPantry() {
+  pantryListEl.textContent = '';
+  if (!state.pantry.length) {
+    pantryListEl.appendChild(emptyBox('在庫は空です。よく買うものを登録しておくと便利です。'));
+    return;
+  }
+  const out = state.pantry.filter(i => i.qty === 0);
+  if (out.length) {
+    const header = document.createElement('div');
+    header.className = 'group-header out-header';
+    header.textContent = '⚠ 在庫切れ(' + out.length + '件)';
+    pantryListEl.appendChild(header);
+    for (const item of out) pantryListEl.appendChild(pantryRow(item));
+  }
+  for (const c of CATEGORIES) {
+    const group = state.pantry.filter(i => i.category === c.id && i.qty > 0);
+    if (!group.length) continue;
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    header.textContent = c.icon + ' ' + c.label;
+    pantryListEl.appendChild(header);
+    for (const item of group) pantryListEl.appendChild(pantryRow(item));
+  }
+}
+
+function emptyBox(text) {
+  const empty = document.createElement('div');
+  empty.className = 'empty';
+  empty.textContent = text;
+  return empty;
+}
+
+function render() {
+  renderShop();
+  renderPantry();
+  updateMeta();
+}
+
+/* ---- リスト操作 ---- */
+
+function removeWithAnimation(row, after) {
+  if (row) row.classList.add('removing');
+  setTimeout(after, 150);
+}
+
+shopListEl.addEventListener('change', e => {
+  const el = e.target.closest('[data-action="toggle"]');
+  if (!el) return;
+  const item = state.shopping.find(i => i.id === el.dataset.id);
+  if (item) setDone(item, el.checked);
+});
+
+shopListEl.addEventListener('click', e => {
+  if (suppressClick) return;
+  const el = e.target.closest('[data-action]');
+  if (el) {
+    const item = state.shopping.find(i => i.id === el.dataset.id);
+    if (!item) return;
+    const action = el.dataset.action;
+    if (action === 'toggle') return; // change側で処理
+    if (action === 'inc' || action === 'dec') {
+      item.qty = action === 'inc' ? Math.min(99, item.qty + 1) : Math.max(1, item.qty - 1);
+      const row = shopRowEl(item.id);
+      if (row) row.querySelector('.num').textContent = item.qty;
+      save();
+      return;
+    }
+    if (action === 'up' || action === 'down') {
+      const idx = state.shopping.findIndex(i => i.id === item.id);
+      const j = action === 'up' ? idx - 1 : idx + 1;
+      if (j >= 0 && j < state.shopping.length) {
+        const tmp = state.shopping[idx];
+        state.shopping[idx] = state.shopping[j];
+        state.shopping[j] = tmp;
+      }
+      save(); renderShop(); updateMeta();
+      return;
+    }
+    if (action === 'del') {
+      captureUndo();
+      const row = shopRowEl(item.id);
+      state.shopping = state.shopping.filter(i => i.id !== item.id);
+      save(); updateMeta();
+      removeWithAnimation(row, () => { renderShop(); updateMeta(); });
+      offerUndo('「' + item.name + '」を削除しました');
+      return;
+    }
+    return;
+  }
+  // 行の広い範囲をタップでチェック(ボタン・入力欄は除外)
+  if (e.target.closest('button, input, select, a, label')) return;
+  const row = e.target.closest('.item');
+  if (!row) return;
+  const item = state.shopping.find(i => i.id === row.dataset.id);
+  if (item) setDone(item, !item.done);
+});
+
+pantryListEl.addEventListener('click', e => {
+  if (suppressClick) return;
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const item = state.pantry.find(i => i.id === el.dataset.id);
+  if (!item) return;
+  const action = el.dataset.action;
+  // 価格入力はchange側で処理。ここで再描画すると入力欄が作り直されフォーカスが失われる
+  if (action === 'price') return;
+  if (action === 'inc' || action === 'dec') {
+    const wasOut = item.qty === 0;
+    item.qty = action === 'inc' ? Math.min(99, item.qty + 1) : Math.max(0, item.qty - 1);
+    save();
+    if (wasOut !== (item.qty === 0)) {
+      renderPantry(); updateMeta();
+    } else {
+      const row = pantryListEl.querySelector('.item[data-id="' + item.id + '"]');
+      if (row) row.querySelector('.num').textContent = item.qty;
+    }
+    return;
+  }
+  if (action === 'del') {
+    captureUndo();
+    const row = pantryListEl.querySelector('.item[data-id="' + item.id + '"]');
+    state.pantry = state.pantry.filter(i => i.id !== item.id);
+    save(); updateMeta();
+    removeWithAnimation(row, () => { renderPantry(); updateMeta(); });
+    offerUndo('「' + item.name + '」を在庫から削除しました');
+    return;
+  }
+  if (action === 'tolist') {
+    addToShopping(item.name, item.category, 1, false, null, false);
+    remember({ name: item.name, category: item.category, qty: 1 });
+    save(); renderShop(); updateMeta();
+    toast('「' + item.name + '」を買い物リストに追加しました');
+  }
+});
+
+pantryListEl.addEventListener('change', e => {
+  const el = e.target.closest('[data-action="price"]');
+  if (!el) return;
+  const item = state.pantry.find(i => i.id === el.dataset.id);
+  if (!item) return;
+  const v = parseInt(el.value, 10);
+  item.usualPrice = v >= 1 ? Math.min(99999, v) : null;
+  save(); render();
+});
+
+/* ---- 在庫に反映 ---- */
+
+moveBtn.addEventListener('click', () => {
+  const done = state.shopping.filter(i => i.done);
+  if (!done.length) return;
+  captureUndo();
+  let toPantry = 0;
+  for (const d of done) {
+    remember({ name: d.name, category: d.category, qty: d.qty, salePrice: d.salePrice });
+    if (d.noStock) continue;
+    // 紐付け先が消えていても同名の在庫があればそこへ(二重登録防止)
+    const p = (d.pantryId && state.pantry.find(i => i.id === d.pantryId)) || findPantry(d.name, d.category);
+    if (p) {
+      p.qty = Math.min(99, p.qty + d.qty);
+    } else {
+      state.pantry.push({ id: uid(), name: d.name, category: d.category, qty: d.qty, usualPrice: null });
+    }
+    toPantry++;
+  }
+  const doneIds = new Set(done.map(i => i.id));
+  state.shopping = state.shopping.filter(i => !i.done);
+  save(); updateMeta();
+  for (const id of doneIds) {
+    const row = shopRowEl(id);
+    if (row) row.classList.add('removing');
+  }
+  setTimeout(() => { renderShop(); updateMeta(); }, 160);
+  offerUndo(done.length + '件を確定(在庫に反映 ' + toPantry + '件)');
+});
+
+/* ---- スマホジェスチャー: 長押しドラッグ並べ替え / 左スワイプ削除 ---- */
+
+const HOLD_MS = 400;
+let gesture = null;
+let suppressClick = false;
+
+function suppressClickBriefly() {
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 350);
+}
+
+function gestureRow(e) {
+  if (e.target.closest('button, input, select, a, label')) return null;
+  return e.target.closest('.item');
+}
+
+function startSwipe(g) {
+  g.mode = 'swipe';
+  const wrap = document.createElement('div');
+  wrap.className = 'swipe-wrap';
+  const label = document.createElement('span');
+  label.className = 'swipe-del';
+  label.textContent = '🗑 削除';
+  wrap.appendChild(label);
+  g.row.parentNode.insertBefore(wrap, g.row);
+  wrap.appendChild(g.row);
+  g.wrap = wrap;
+  g.row.classList.add('swiping');
+}
+
+function unwrapSwipe(g) {
+  if (!g.wrap) return;
+  g.row.classList.remove('swiping');
+  g.row.style.transform = '';
+  g.row.style.transition = '';
+  g.wrap.parentNode.insertBefore(g.row, g.wrap);
+  g.wrap.remove();
+  g.wrap = null;
+}
+
+function startDrag(g) {
+  g.mode = 'drag';
+  g.h = g.row.offsetHeight;
+  g.row.classList.add('dragging');
+  document.body.classList.add('drag-active');
+}
+
+function dragMove(g, clientY) {
+  const rows = [...shopListEl.querySelectorAll('.item')];
+  const idx = rows.indexOf(g.row);
+  let target = idx;
+  for (let i = 0; i < rows.length; i++) {
+    if (i === idx) continue;
+    const r = rows[i].getBoundingClientRect();
+    const mid = r.top + r.height / 2;
+    if (i < idx && clientY < mid) { target = i; break; }
+    if (i > idx && clientY > mid) target = i;
+  }
+  if (target !== idx) {
+    if (target < idx) shopListEl.insertBefore(g.row, rows[target]);
+    else shopListEl.insertBefore(g.row, rows[target].nextSibling);
+  }
+  g.row.style.transform = '';
+  const r = g.row.getBoundingClientRect();
+  g.row.style.transform = 'translateY(' + (clientY - g.h / 2 - r.top) + 'px)';
+  if (clientY < 90) window.scrollBy(0, -10);
+  else if (clientY > window.innerHeight - 90) window.scrollBy(0, 10);
+}
+
+function endDrag(g) {
+  g.row.classList.remove('dragging');
+  g.row.style.transform = '';
+  document.body.classList.remove('drag-active');
+  const order = [...shopListEl.querySelectorAll('.item')].map(r => r.dataset.id);
+  state.shopping = order.map(id => state.shopping.find(i => i.id === id)).filter(Boolean);
+  save(); renderShop(); updateMeta();
+}
+
+function finishSwipeDelete(g) {
+  const isShop = g.list === 'shop';
+  const item = (isShop ? state.shopping : state.pantry).find(i => i.id === g.id);
+  if (!item) { unwrapSwipe(g); return; }
+  captureUndo();
+  const wrap = g.wrap;
+  wrap.style.height = wrap.offsetHeight + 'px';
+  void wrap.offsetHeight;
+  wrap.classList.add('collapsing');
+  wrap.style.height = '0px';
+  if (isShop) state.shopping = state.shopping.filter(i => i.id !== g.id);
+  else state.pantry = state.pantry.filter(i => i.id !== g.id);
+  save(); updateMeta();
+  setTimeout(() => { if (isShop) renderShop(); else renderPantry(); updateMeta(); }, 160);
+  offerUndo('「' + item.name + '」を削除しました');
+}
+
+function cancelGesture() {
+  if (!gesture) return;
+  const g = gesture;
+  clearTimeout(g.timer);
+  gesture = null;
+  if (g.mode === 'swipe') unwrapSwipe(g);
+  else if (g.mode === 'drag') {
+    g.row.classList.remove('dragging');
+    g.row.style.transform = '';
+    document.body.classList.remove('drag-active');
+    renderShop(); updateMeta();
+  }
+}
+
+function onTouchStart(e) {
+  if (e.touches.length !== 1) { cancelGesture(); return; }
+  const row = gestureRow(e);
+  if (!row) return;
+  const t = e.touches[0];
+  const g = {
+    list: e.currentTarget === shopListEl ? 'shop' : 'pantry',
+    row, id: row.dataset.id,
+    x0: t.clientX, y0: t.clientY, dx: 0, mode: 'none', wrap: null, timer: null
+  };
+  gesture = g;
+  g.timer = setTimeout(() => {
+    if (gesture === g && g.mode === 'none' && g.list === 'shop') startDrag(g);
+  }, HOLD_MS);
+}
+
+function onTouchMove(e) {
+  if (!gesture) return;
+  const g = gesture;
+  if (e.touches.length !== 1) { cancelGesture(); return; }
+  const t = e.touches[0];
+  const dx = t.clientX - g.x0;
+  const dy = t.clientY - g.y0;
+  if (g.mode === 'none') {
+    if (Math.abs(dx) <= 10 && Math.abs(dy) <= 10) return;
+    clearTimeout(g.timer);
+    if (dx < -10 && Math.abs(dx) > Math.abs(dy)) startSwipe(g);
+    else { gesture = null; return; } // 縦スクロールはネイティブに任せる
+  }
+  e.preventDefault();
+  if (g.mode === 'swipe') {
+    g.dx = Math.min(0, dx);
+    g.row.style.transform = 'translateX(' + g.dx + 'px)';
+  } else if (g.mode === 'drag') {
+    dragMove(g, t.clientY);
+  }
+}
+
+function onTouchEnd() {
+  if (!gesture) return;
+  const g = gesture;
+  clearTimeout(g.timer);
+  gesture = null;
+  if (g.mode === 'swipe') {
+    suppressClickBriefly();
+    if (g.dx <= -80) finishSwipeDelete(g);
+    else {
+      g.row.style.transition = 'transform .15s ease';
+      g.row.style.transform = '';
+      setTimeout(() => unwrapSwipe(g), 160);
+    }
+  } else if (g.mode === 'drag') {
+    suppressClickBriefly();
+    endDrag(g);
+  }
+}
+
+for (const listEl of [shopListEl, pantryListEl]) {
+  listEl.addEventListener('touchstart', onTouchStart, { passive: true });
+  listEl.addEventListener('touchmove', onTouchMove, { passive: false });
+  listEl.addEventListener('touchend', onTouchEnd);
+  listEl.addEventListener('touchcancel', cancelGesture);
+  listEl.addEventListener('contextmenu', e => { if (gesture) e.preventDefault(); });
+}
+
+/* ---- タブ ---- */
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    $('panel-shop').classList.toggle('hidden', tab.dataset.tab !== 'shop');
+    $('panel-pantry').classList.toggle('hidden', tab.dataset.tab !== 'pantry');
+  });
+});
+
+/* ---- ヘルプ・書き出し・読み込み ---- */
+
+const helpDialog = $('help-dialog');
+$('help-open').addEventListener('click', () => helpDialog.showModal());
+$('help-close').addEventListener('click', () => helpDialog.close());
+helpDialog.addEventListener('click', e => { if (e.target === helpDialog) helpDialog.close(); });
+
+function serializeState() {
+  return JSON.stringify(state, null, 2);
+}
+
+function normalizeState(s) {
+  const num = (v, min, max) => {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : null;
+  };
+  const cat = c => CAT_MAP[c] ? c : (OLD_CAT_MAP[c] || 'other');
+  const nameOf = i => String(i.name).trim().slice(0, 40);
+  const shopping = s.shopping.filter(i => i && typeof i.name === 'string' && i.name.trim()).map(i => ({
+    id: typeof i.id === 'string' && i.id ? i.id : uid(),
+    name: nameOf(i),
+    category: cat(i.category),
+    qty: num(i.qty, 1, 99) || 1,
+    done: !!i.done,
+    sale: !!i.sale,
+    salePrice: i.sale ? num(i.salePrice, 1, 99999) : null,
+    pantryId: typeof i.pantryId === 'string' && i.pantryId ? i.pantryId : null,
+    noStock: !!i.noStock || i.category === 'rare'
+  }));
+  const pantry = s.pantry.filter(i => i && typeof i.name === 'string' && i.name.trim()).map(i => ({
+    id: typeof i.id === 'string' && i.id ? i.id : uid(),
+    name: nameOf(i),
+    category: cat(i.category),
+    qty: num(i.qty, 0, 99) || 0,
+    usualPrice: num(i.usualPrice, 1, 99999)
+  }));
+  return { shopping, pantry, history: [] };
+}
+
+function parseImport(text) {
+  try {
+    const s = JSON.parse(text);
+    if (!validState(s)) return null;
+    return ensureHistory(normalizeState(s));
+  } catch (e) {
+    return null;
+  }
+}
+
+function applyImported(s) {
+  captureUndo();
+  state = s;
+  save(); render();
+  offerUndo('読み込みました(買い物' + s.shopping.length + '件・在庫' + s.pantry.length + '件)');
+}
+
+$('export-btn').addEventListener('click', () => {
+  const blob = new Blob([serializeState()], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date();
+  const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  a.href = url;
+  a.download = 'kaimono-zaiko-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('データを書き出しました');
+});
+
+$('import-btn').addEventListener('click', () => $('import-file').click());
+$('import-file').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  let text;
+  try { text = await file.text(); } catch (err) { toast('ファイルを読めませんでした'); return; }
+  const s = parseImport(text);
+  if (!s) { toast('読み込めないファイルです(形式を確認してください)'); return; }
+  applyImported(s);
+});
+
+render();
+
+// PWA: オフライン用キャッシュ(file:// では登録しない)
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
